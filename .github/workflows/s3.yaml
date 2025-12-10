@@ -5,10 +5,11 @@ name: S3 Integration Test
 
 on:
   # Run on push to main/master/develop (e.g. after PR is merged)
-  push:
-    branches:
-      - main
-      - master
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+  workflow_dispatch:
 
 # Cancel redundant jobs (if a new job is triggered for the same workflow and ref)
 concurrency:
