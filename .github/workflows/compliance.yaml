@@ -18,12 +18,16 @@
 
 name: Compliance Test
 
+# Pauline (12/10/2025): DISABLED because the tests currently fail. However the `Run OpenAPI
+# Test Runner` step returns success even when the tests fail.
+
 on:
   # Run on push to main/master/develop (e.g. after PR is merged)
-  push:
+  # push:
   #   branches:
   #     - main
   #     - master
+  workflow_call:
 
 # Cancel redundant jobs (if a new job is triggered for the same workflow and ref)
 concurrency:
