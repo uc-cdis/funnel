@@ -272,6 +272,10 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 	if err != nil {
 		return nil, err
 	}
+
+	// FPutObject uploads objects that are less than 128MiB in a single PUT operation. For objects that are greater than the 128MiB in size, FPutObject seamlessly uploads the object in chunks of 128MiB or more depending on the actual file size. The max upload size for an object is 5TB.
+	opts.PartSize = 999999
+
 	if fileInfo.IsDir() {
 		// Walk the directory and upload all files and subdirectories
 		err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
@@ -286,13 +290,12 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 				}
 				uploadPath := filepath.Join(u.path, relativePath)
 
-				logger.Debug("genericS3: (dir) uploading '%s'. File contents:", filePath)
 				content, err := os.ReadFile(filePath)
 				if err != nil {
 					return fmt.Errorf("Error reading file: %v", err)
 				}
-				logger.Debug(string(content))
-				
+				logger.Debug("genericS3: (dir) uploading '", filePath, "'. File contents:", string(content))
+
 				_, err = s3.client.FPutObject(ctx, u.bucket, uploadPath, filePath, opts)
 				if err != nil {
 					return fmt.Errorf("genericS3: putting object %s: %v", url, err)
@@ -305,13 +308,12 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		}
 	} else {
 		// Upload the file directly
-		logger.Debug("genericS3: (file) uploading '%s'. File contents:", path)
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("Error reading file: %v", err)
 		}
-		logger.Debug(string(content))
-		
+		logger.Debug("genericS3: (file) uploading '", path, "'. File contents:", string(content))
+
 		_, err = s3.client.FPutObject(ctx, u.bucket, u.path, path, opts)
 		if err != nil {
 			return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
