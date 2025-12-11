@@ -8,7 +8,7 @@ on:
   push:
 
 env:
-  QUAY_REPO: quay.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+  QUAY_REPO: quay.io/cdis/${{ github.event.repository.name }}
 
 jobs:
   build:
