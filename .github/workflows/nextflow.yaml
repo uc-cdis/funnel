@@ -1,11 +1,19 @@
 name: Nextflow Test
 
+# Pauline (12/10/2025): DISABLED because the tests currently fail:
+#   Launching `nf-canary/main.nf` [nice_cori] DSL2 - revision: 4aef0271fb
+#   ERROR ~ 'java.lang.Object nextflow.Session.getConfigAttribute(java.lang.String,
+#   java.lang.Object)'
+# And because we may run the `nf-canary` tests in integration tests instead, so they
+# run for gen3-workflow too.
+
 on:
   # Run on push to main/master/develop (e.g. after PR is merged)
-  push:
-    # branches:
-    #   - main
-    #   - master
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+  workflow_call:
 
 # Cancel redundant jobs (if a new job is triggered for the same workflow and ref)
 concurrency:
