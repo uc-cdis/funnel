@@ -89,7 +89,7 @@ func (kcmd KubernetesCommand) Run(ctx context.Context) error {
 		cmd = append(cmd, "<", kcmd.StdinFile)
 	}
 
-	if val, ok := kcmd.env["TES_INTERNAL_RUN_AS_ROOT"]; ok && val == "true" {
+	if val, ok := kcmd.Env["TES_INTERNAL_RUN_AS_ROOT"]; ok && val == "true" {
 		kcmd.SecurityContext = map[string]interface{}{
 			"runAsUser":  0,
 			"runAsGroup": 0,
