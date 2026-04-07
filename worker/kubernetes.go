@@ -22,22 +22,22 @@ import (
 
 // KubernetesCommand is responsible for configuring and running a task in a Kubernetes cluster.
 type KubernetesCommand struct {
-	TaskId         string
-	JobId          int
-	StdinFile      string
-	TaskTemplate   string
-	Namespace      string // Funnel Server Namespace
-	JobsNamespace  string // Funnel Worker + Executor Namespace (default: Namespace)
-	NodeSelector   map[string]string
-	Tolerations    []map[string]interface{}
-	Resources      *tes.Resources
-	ResourceLimits *tes.Resources
-	ServiceAccount string
-	NeedsPVC       bool
-	Clientset      kubernetes.Interface
+	TaskId          string
+	JobId           int
+	StdinFile       string
+	TaskTemplate    string
+	Namespace       string // Funnel Server Namespace
+	JobsNamespace   string // Funnel Worker + Executor Namespace (default: Namespace)
+	NodeSelector    map[string]string
+	Tolerations     []map[string]interface{}
+	Resources       *tes.Resources
+	ResourceLimits  *tes.Resources
+	ServiceAccount  string
+	NeedsPVC        bool
+	Clientset       kubernetes.Interface
+	SecurityContext map[string]interface{}
 	Command
 }
-
 
 type K8sExecutorErr struct {
 	ExitCode int
@@ -89,6 +89,13 @@ func (kcmd KubernetesCommand) Run(ctx context.Context) error {
 		cmd = append(cmd, "<", kcmd.StdinFile)
 	}
 
+	if val, ok := kcmd.Env["TES_INTERNAL_RUN_AS_ROOT"]; ok && val == "true" {
+		kcmd.SecurityContext = map[string]interface{}{
+			"runAsUser":  0,
+			"runAsGroup": 0,
+		}
+	}
+
 	// Use a shell wrapper only when the command is a single element (i.e. a
 	// shell script string). When the caller provides multiple elements the
 	// array is passed directly as the container command+args so that spaces,
@@ -116,6 +123,7 @@ func (kcmd KubernetesCommand) Run(ctx context.Context) error {
 		"NodeSelector":       kcmd.NodeSelector,
 		"Tolerations":        kcmd.Tolerations,
 		"ServiceAccountName": kcmd.ServiceAccount,
+		"SecurityContext":    kcmd.SecurityContext,
 	}
 
 	logger.Debug("Creating executor job from template", "template", kcmd.TaskTemplate, "data", templateData)
