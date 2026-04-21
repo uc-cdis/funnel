@@ -622,7 +622,9 @@ func (b *Backend) cleanOrphanedResources(ctx context.Context) {
 	}
 
 	// PVs
-	if pvs, err := b.client.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "app=funnel"}); err == nil {
+	labelSelector := fmt.Sprintf("app=funnel,namespace=%s", namespace)
+
+	if pvs, err := b.client.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
 		if err != nil {
 			b.log.Error("backlog cleanup: listing PVs", err)
 		}
