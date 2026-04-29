@@ -68,6 +68,16 @@ func CreateServiceAccount(ctx context.Context, task *tes.Task, conf *config.Conf
 	return nil
 }
 
+func isServiceAccountAttachedToPods(ctx context.Context, saName, namespace string, client kubernetes.Interface) (bool, error) {
+	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.serviceAccountName=%s", saName),
+	})
+	if err != nil {
+		return false, fmt.Errorf("listing pods using ServiceAccount %s: %v", saName, err)
+	}
+	return len(pods.Items) > 0, nil
+}
+
 // DeleteServiceAccount deletes the ServiceAccount created for a task.
 // If externalSA is true the ServiceAccount is externally managed (e.g. a
 // Gen3Workflow per-user SA supplied via the _WORKER_SA task tag) and must not
@@ -85,6 +95,14 @@ func DeleteServiceAccount(ctx context.Context, taskID string, namespace string, 
 		return fmt.Errorf("listing ServiceAccounts for task %s: %v", taskID, err)
 	}
 	for _, sa := range sas.Items {
+		inUse, err := isServiceAccountAttachedToPods(ctx, sa.Name, namespace, client)
+		if err != nil {
+			return err
+		}
+		if inUse {
+			return fmt.Errorf("serviceAccount %s is still in use by active pod(s)", sa.Name)
+		}
+
 		log.Debug("deleting Worker ServiceAccount", "name", sa.Name, "taskID", taskID)
 		if err := client.CoreV1().ServiceAccounts(namespace).Delete(ctx, sa.Name, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("deleting ServiceAccount %s: %v", sa.Name, err)
