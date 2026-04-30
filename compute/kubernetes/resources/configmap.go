@@ -7,6 +7,7 @@ import (
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/logger"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -50,7 +51,7 @@ func DeleteConfigMap(ctx context.Context, taskId string, namespace string, clien
 	if cfg != nil {
 		log.Debug("deleting Worker configMap", "taskID", taskId)
 		err := client.CoreV1().ConfigMaps(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return fmt.Errorf("%v", err)
 		}
 	}
