@@ -21,6 +21,11 @@ func getExitCode(err error) (int, error) {
 		return k8sErr.ExitCode, nil
 	}
 
+	// If Retriable error, return 1 to trigger retry, but log the error message.
+	if _, ok := err.(*K8sRetriableErr); ok {
+		return 1, nil
+	}
+
 	if exiterr, exitOk := err.(*exec.ExitError); exitOk {
 		if status, statusOk := exiterr.Sys().(syscall.WaitStatus); statusOk {
 			return status.ExitStatus(), nil
