@@ -46,6 +46,7 @@ type K8sRetriableErr struct {
 	Reason   string
 	Message  string
 	JobName  string
+	Err      error
 	error
 }
 type K8sExecutorErr struct {
@@ -254,7 +255,11 @@ func (kcmd KubernetesCommand) Run(ctx context.Context) error {
 			}
 		}
 		logger.Debug("Log streaming error not marked as SYSTEM_ERROR because this is not the last worker attempt", "podName", pod.Name, "error", err)
-		return fmt.Errorf("Transient system error, will retry. error: failed to stream logs from pod %s: %v", pod.Name, err)
+		return &K8sRetriableErr{
+			Reason:  "LogStreamingFailed",
+			Message: fmt.Sprintf("Transient system error, will retry. Failed to stream logs from pod %s", pod.Name),
+			Err:     err,
+		}
 	}
 
 	if len(pod.Status.ContainerStatuses) == 0 {
