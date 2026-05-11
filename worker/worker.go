@@ -297,7 +297,7 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 					// TODO: Change this to check the exit code
 					var k8sSystemErr *K8sSystemErr
 					var execErr *K8sExecutorErr
-
+					var retriableErr *K8sRetriableErr
 					switch {
 					// K8s System error
 					case errors.As(err, &k8sSystemErr):
@@ -305,6 +305,8 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 					// K8s Executor error
 					case errors.As(err, &execErr):
 						run.execerr = err
+					case errors.As(err, &retriableErr):
+						run.execerr = nil
 					// Local (Docker) Executor error
 					default:
 						run.execerr = err

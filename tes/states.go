@@ -56,7 +56,7 @@ func ValidateTransition(from, to State) error {
 		return nil
 
 	case Running:
-		if to == Complete || to == ExecutorError || to == SystemError || to == Canceled {
+		if to == Complete || to == ExecutorError || to == SystemError || to == Canceled || to == Initializing {
 			return nil
 		}
 		return &TransitionError{from, to}

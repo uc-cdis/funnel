@@ -18,7 +18,11 @@ func main() {
 		// fail. This avoids unwanted worker retries when the issue is a failure in the user's
 		// script run by the executor.
 		var execErr *worker.K8sExecutorErr
+		var retriableErr *worker.K8sRetriableErr
 		if errors.As(err, &execErr) {
+			os.Exit(0)
+		}
+		if errors.As(err, &retriableErr) {
 			os.Exit(0)
 		}
 

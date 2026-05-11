@@ -41,6 +41,13 @@ type KubernetesCommand struct {
 	Command
 }
 
+type K8sRetriableErr struct {
+	ExitCode int
+	Reason   string
+	Message  string
+	JobName  string
+	error
+}
 type K8sExecutorErr struct {
 	ExitCode int
 	Reason   string
