@@ -56,7 +56,7 @@ func ValidateTransition(from, to State) error {
 		return nil
 
 	case Running:
-		if to == Complete || to == ExecutorError || to == SystemError || to == Canceled || to == Initializing {
+		if to == Complete || to == ExecutorError || to == SystemError || to == Canceled {
 			return nil
 		}
 		return &TransitionError{from, to}
@@ -74,6 +74,8 @@ func ValidateTransition(from, to State) error {
 		return &TransitionError{from, to}
 
 	}
+
+	//TODO: Implement state.PREEMPTED and add valid transitions to and from that state.
 
 	// Shouldn't be reaching this point, but just in case.
 	return &TransitionError{from, to}

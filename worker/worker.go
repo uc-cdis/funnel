@@ -117,6 +117,7 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 	// to ensure they always run, even if there's a missed error.
 	defer func() {
 		event.EndTime(time.Now())
+		var retriableErr *K8sRetriableErr
 		switch {
 		case run.taskCanceled:
 			// The task was canceled.
@@ -125,8 +126,14 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 			runerr = fmt.Errorf("task canceled")
 		case run.syserr != nil:
 			// Something else failed
-			event.Error("System error", "error", run.syserr)
-			event.State(tes.State_SYSTEM_ERROR)
+			if errors.As(run.syserr, &retriableErr) {
+				event.Error("Retriable error, raising task status to PREEMPTED", "error", run.syserr)
+				//TODO: Implement this new state and uncomment
+				//event.State(tes.State_PREEMPTED)
+			} else {
+				event.Error("System error", "error", run.syserr)
+				event.State(tes.State_SYSTEM_ERROR)
+			}
 			runerr = run.syserr
 		case run.execerr != nil:
 			// One of the executors failed
@@ -306,7 +313,7 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 					case errors.As(err, &execErr):
 						run.execerr = err
 					case errors.As(err, &retriableErr):
-						run.execerr = nil
+						run.syserr = err
 					// Local (Docker) Executor error
 					default:
 						run.execerr = err
