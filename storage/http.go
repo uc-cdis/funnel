@@ -89,11 +89,11 @@ func (b *HTTP) Get(ctx context.Context, url, path string) (*Object, error) {
 		return nil, fmt.Errorf("httpStorage: creating host file: %s", err)
 	}
 
-	_, copyErr := io.Copy(dest, fsutil.Reader(ctx, resp.Body))
+	n, copyErr := io.Copy(dest, fsutil.Reader(ctx, resp.Body))
 	closeErr := dest.Close()
 
 	if copyErr != nil {
-		return nil, fmt.Errorf("httpStorage: copying file: %s", copyErr)
+		return nil, fmt.Errorf("httpStorage: bytes written before error %d at path %s while copying file: %s", n, path, copyErr)
 	}
 	if closeErr != nil {
 		return nil, fmt.Errorf("httpStorage: closing file: %s", closeErr)
