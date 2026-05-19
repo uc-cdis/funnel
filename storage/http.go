@@ -22,6 +22,9 @@ type HTTP struct {
 func NewHTTP(conf *config.HTTPStorage) (*HTTP, error) {
 	client := &http.Client{
 		Timeout: conf.Timeout.GetDuration().AsDuration(),
+		Transport: &http.Transport{
+			DisableCompression: true, // Prevent auto-decompression of .gz files
+		},
 	}
 	return &HTTP{client}, nil
 }
