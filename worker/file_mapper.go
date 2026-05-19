@@ -75,7 +75,7 @@ func (mapper *FileMapper) MapTask(task *tes.Task) error {
 		}
 	}
 
-	err = mapper.AddTmpVolume("/tmp")
+	err = mapper.AddTmpVolume("/temp")
 	if err != nil {
 		return err
 	}
