@@ -106,7 +106,6 @@ func (mapper *FileMapper) MapTask(task *tes.Task) error {
 }
 
 func (mapper *FileMapper) CopyInputsToScratch(scratchDir string) error {
-	fmt.Println("Copying inputs to scratch directory ", scratchDir)
 	scratchAbsDir, err := filepath.Abs(scratchDir)
 	if err != nil {
 		return err
@@ -230,7 +229,6 @@ func copyDir(src string, dst string) error {
 }
 
 func copyFile(src string, dst string) error {
-	fmt.Println("Copying file from ", src, " to ", dst)
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
