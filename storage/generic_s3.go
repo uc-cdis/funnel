@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -60,7 +63,7 @@ func isDir(ctx context.Context, minioClient *minio.Client, bucketName, objectNam
 	// List objects with the prefix to see if there are multiple keys with the given prefix
 	// Recursively list all objects
 	recursive := true
-	for object := range minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Recursive: recursive}) {
+	for object := range minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: objectName, Recursive: recursive}) {
 		if object.Err != nil {
 			return false, object.Err
 		}
@@ -171,8 +174,11 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 		}
 
 		for _, obj := range objects {
-			// Recursively download files and subdirectories
-			_, err := s3.Get(ctx, obj.URL, filepath.Join(path, obj.Name))
+			relPath, err := filepath.Rel(u.path, obj.Name)
+			if err != nil {
+				return nil, fmt.Errorf("genericS3: computing relative path for %s: %v", obj.Name, err)
+			}
+			err = download(ctx, s3.client, u.bucket, obj.Name, filepath.Join(path, relPath), s3.kmskeyId)
 			if err != nil {
 				return nil, err
 			}
@@ -210,6 +216,12 @@ func download(ctx context.Context, client *minio.Client, bucket, objectPath, fil
 
 	// Step 2: Create the local file (overwrite if exists)
 	logger.Debug("genericS3: creating local file", "filePath", filePath)
+	dir := filepath.Dir(filePath)
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed creating directories: %w", err)
+	}
+
 	outFile, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("failed creating file: %w", err)
@@ -246,7 +258,6 @@ func download(ctx context.Context, client *minio.Client, bucket, objectPath, fil
 func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error) {
 	u, err := s3.parse(url)
 	if err != nil {
-		fmt.Println("DEBUG: error parsing URL:", err)
 		return nil, err
 	}
 
@@ -255,25 +266,39 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		logger.Debug("genericS3: using KMS encryption for upload", "kmsKeyId", s3.kmskeyId)
 		SSEKMS, err := encrypt.NewSSEKMS(s3.kmskeyId, ctx)
 		if err != nil {
-			fmt.Println("DEBUG: error creating SSEKMS:", err)
 			return nil, fmt.Errorf("genericS3: Put(): creating SSEKMS: %v", err)
 		}
 		opts.ServerSideEncryption = SSEKMS
 	}
 
-	// Check if the path is a directory
-	fmt.Println("DEBUG: path", path)
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		fmt.Println("DEBUG: error stating path:", err)
-		return nil, err
+	// Wait for the local path to become readable. When the local path is on a
+	// Mountpoint-for-S3 backed filesystem and the file was written by another
+	// mount instance (the executor pod), os.Stat returns EPERM until Mountpoint
+	// finishes flushing the write to S3. Poll until the file is readable or the
+	// timeout expires.
+	const mountpointFlushTimeout = 30 * time.Second
+	const mountpointFlushInterval = 2 * time.Second
+	deadline := time.Now().Add(mountpointFlushTimeout)
+	var fileInfo os.FileInfo
+	for {
+		var err error
+		fileInfo, err = os.Stat(path)
+		if err == nil {
+			break
+		}
+		if time.Now().Before(deadline) && (errors.Is(err, syscall.EPERM) || errors.Is(err, os.ErrNotExist)) {
+			logger.Debug("genericS3: waiting for output file to become readable", "path", path, "error", err)
+			time.Sleep(mountpointFlushInterval)
+			continue
+		}
+		return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
 	}
-	fmt.Printf("DEBUG: Path %s is a directory\n", path)
+
+	// Check if the path is a directory
 	if fileInfo.IsDir() {
 		// Walk the directory and upload all files and subdirectories
 		err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 			if err != nil {
-				fmt.Println("DEBUG: error walking filepath:", err)
 				return err
 			}
 			if !info.IsDir() {
@@ -283,40 +308,24 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 					return err
 				}
 				uploadPath := filepath.Join(u.path, relativePath)
-				fmt.Println("DEBUG: u.bucket:", u.bucket)
-				fmt.Println("DEBUG: uploadPath:", uploadPath)
-				fmt.Println("DEBUG: filePath:", filePath)
 				_, err = s3.client.FPutObject(ctx, u.bucket, uploadPath, filePath, opts)
 				if err != nil {
-					fmt.Println("DEBUG: error putting object:", err)
-					return fmt.Errorf("genericS3: putting object %s: %v", url, err)
+					return fmt.Errorf("genericS3: putting nested object %s: %v", url, err)
 				}
 			}
-			fmt.Println("DEBUG: finished walking directory...")
 			return nil
 		})
 		if err != nil {
-			fmt.Println("DEBUG: error walking directory:", err)
 			return nil, err
 		}
 	} else {
-		// Upload the file directly
-		fmt.Println("DEBUG: Uploading file directly")
-		fmt.Println("DEBUG: u.bucket:", u.bucket)
-		fmt.Println("DEBUG: u.path:", u.path)
-		fmt.Println("DEBUG: path:", path)
 		_, err = s3.client.FPutObject(ctx, u.bucket, u.path, path, opts)
 		if err != nil {
-			fmt.Println("DEBUG: error putting object directly:", err)
 			return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
 		}
 	}
 
-	fmt.Println("DEBUG: url:", url)
-	fmt.Println("DEBUG: url:", url)
 	obj, err := s3.Stat(ctx, url)
-	fmt.Println("DEBUG: obj:", obj)
-	fmt.Println("DEBUG: err:", err)
 
 	return obj, err
 }
