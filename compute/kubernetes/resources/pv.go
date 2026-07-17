@@ -36,12 +36,13 @@ func CreatePV(ctx context.Context, taskId string, diskGb float64, conf *config.C
 
 	var buf bytes.Buffer
 	err = t.Execute(&buf, map[string]interface{}{
-		"TaskId":    taskId,
-		"Namespace": conf.Kubernetes.JobsNamespace,
-		"Bucket":    s3Bucket,
-		"Region":    s3Region,
-		"KmsKeyID":  s3KmsKeyID,
-		"DiskGb":    diskGb,
+		"TaskId":         taskId,
+		"Namespace":      conf.Kubernetes.JobsNamespace,
+		"Bucket":         s3Bucket,
+		"Region":         s3Region,
+		"KmsKeyID":       s3KmsKeyID,
+		"DiskGb":         diskGb,
+		"S3FilesystemId": conf.storage.s3FilesFilesystemId,
 	})
 	if err != nil {
 		return fmt.Errorf("%v", err)
