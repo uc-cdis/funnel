@@ -1,3 +1,7 @@
+// To update the Funnel config:
+// - Edit `config/config.proto`
+// - Run `make proto-depends` and then `make proto`
+
 syntax = "proto3";
 
 package config;
@@ -360,6 +364,9 @@ message Kubernetes {
 
   // Timeout for creating Kubernetes resources (PV, PVC, Job, etc.)
   TimeoutConfig Timeout = 19;
+
+  // Configure this when using S3Files as PV backend
+  string S3FilesFilesystemId = 20;
 }
 
 // KubernetesResources describes default and maximum resource limits for Kubernetes tasks.

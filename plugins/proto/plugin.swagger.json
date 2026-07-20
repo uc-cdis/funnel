@@ -546,6 +546,10 @@
         "Timeout": {
           "$ref": "#/definitions/configTimeoutConfig",
           "title": "Timeout for creating Kubernetes resources (PV, PVC, Job, etc.)"
+        },
+        "S3FilesFilesystemId": {
+          "type": "string",
+          "title": "Configure this when using S3Files as PV backend"
         }
       },
       "description": "Kubernetes describes the configuration for the Kubernetes compute backend."

@@ -42,7 +42,7 @@ func CreatePV(ctx context.Context, taskId string, diskGb float64, conf *config.C
 		"Region":         s3Region,
 		"KmsKeyID":       s3KmsKeyID,
 		"DiskGb":         diskGb,
-		"S3FilesystemId": conf.storage.s3FilesFilesystemId,
+		"S3FilesystemId": conf.Kubernetes.S3FilesFilesystemId,
 	})
 	if err != nil {
 		return fmt.Errorf("%v", err)
