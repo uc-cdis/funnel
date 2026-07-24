@@ -109,7 +109,7 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 		}
 
 		// TODO: Test that plugin response is being correctly set in taskConfig after this merge
-		err := mergo.Merge(taskConfig, resp.Config, mergo.WithOverride)
+		err := mergo.Merge(taskConfig, resp.Config, mergo.WithOverwriteWithEmptyValue)
 		if err != nil {
 			return fmt.Errorf("Failed to merge plugin config %v", err)
 		}
