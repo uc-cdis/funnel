@@ -81,6 +81,7 @@ func CreateJob(ctx context.Context, task *tes.Task, conf *config.Config, client 
 		"RamGb":              res.GetRamGb(),
 		"DiskGb":             res.GetDiskGb(),
 		"Image":              image,
+		"ImagePullPolicy":    "Always",
 		"BackoffLimit":       backoffLimit,
 		"NeedsPVC":           len(task.Inputs) > 0 || len(task.Outputs) > 0 || len(task.Volumes) > 0,
 		"NodeSelector":       conf.Kubernetes.NodeSelector,
@@ -91,6 +92,11 @@ func CreateJob(ctx context.Context, task *tes.Task, conf *config.Config, client 
 	// Override ServiceAccountName if provided in Task Tags
 	if saName, exists := task.Tags["_WORKER_SA"]; exists && saName != "" {
 		templateData["ServiceAccountName"] = saName
+	}
+
+	// Override ImagePullPolicy if provided in Task Tags
+	if imagePullPolicy, exists := task.Tags["_IMAGE_PULL_POLICY"]; exists && imagePullPolicy != "" {
+		templateData["ImagePullPolicy"] = imagePullPolicy
 	}
 
 	var buf bytes.Buffer
