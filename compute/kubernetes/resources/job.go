@@ -95,7 +95,9 @@ func CreateJob(ctx context.Context, task *tes.Task, conf *config.Config, client 
 	}
 
 	// Override ImagePullPolicy if provided in Task Tags
+	log.Debug("task.Tags", "task.Tags", task.Tags)
 	if imagePullPolicy, exists := task.Tags["_IMAGE_PULL_POLICY"]; exists && imagePullPolicy != "" {
+		log.Debug("Setting value", "ImagePullPolicy", imagePullPolicy)
 		templateData["ImagePullPolicy"] = imagePullPolicy
 	}
 
