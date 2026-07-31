@@ -427,6 +427,9 @@ Kubernetes:
       RamGb: 4096Mi
       DiskGb: 4096Mi
 
+  # Configure this when using S3Files as PV backend
+  S3FilesFilesystemId: ''
+
 # -------------------------------------------------------------------------------
 # Storage
 # -------------------------------------------------------------------------------
