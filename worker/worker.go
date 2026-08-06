@@ -249,7 +249,7 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 					NodeSelector:    r.Executor.NodeSelector,
 					Tolerations:     r.Executor.Tolerations,
 					ServiceAccount:  fmt.Sprintf("funnel-worker-sa-%s-%s", r.Executor.JobsNamespace, task.Id),
-					ImagePullPolicy: fmt.Sprint("Always"),
+					ImagePullPolicy: "Always",
 				}
 
 				// Override ServiceAccountName if provided in Task Tags
