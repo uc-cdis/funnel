@@ -234,26 +234,32 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 				}
 
 				taskCommand = &KubernetesCommand{
-					TaskId:         task.Id,
-					JobId:          i,
-					StdinFile:      d.Stdin,
-					StdoutFile:     d.Stdout,
-					StderrFile:     d.Stderr,
-					TaskTemplate:   r.Executor.Template,
-					Namespace:      r.Executor.Namespace,
-					JobsNamespace:  r.Executor.JobsNamespace,
-					Resources:      resources,
-					ResourceLimits: resourceLimits,
-					Command:        command,
-					NeedsPVC:       len(task.GetInputs()) > 0 || len(task.GetOutputs()) > 0 || len(task.GetVolumes()) > 0,
-					NodeSelector:   r.Executor.NodeSelector,
-					Tolerations:    r.Executor.Tolerations,
-					ServiceAccount: fmt.Sprintf("funnel-worker-sa-%s-%s", r.Executor.JobsNamespace, task.Id),
+					TaskId:          task.Id,
+					JobId:           i,
+					StdinFile:       d.Stdin,
+					StdoutFile:      d.Stdout,
+					StderrFile:      d.Stderr,
+					TaskTemplate:    r.Executor.Template,
+					Namespace:       r.Executor.Namespace,
+					JobsNamespace:   r.Executor.JobsNamespace,
+					Resources:       resources,
+					ResourceLimits:  resourceLimits,
+					Command:         command,
+					NeedsPVC:        len(task.GetInputs()) > 0 || len(task.GetOutputs()) > 0 || len(task.GetVolumes()) > 0,
+					NodeSelector:    r.Executor.NodeSelector,
+					Tolerations:     r.Executor.Tolerations,
+					ServiceAccount:  fmt.Sprintf("funnel-worker-sa-%s-%s", r.Executor.JobsNamespace, task.Id),
+					ImagePullPolicy: "Always",
 				}
 
 				// Override ServiceAccountName if provided in Task Tags
 				if saName, exists := task.Tags["_WORKER_SA"]; exists && saName != "" {
 					taskCommand.(*KubernetesCommand).ServiceAccount = saName
+				}
+
+				// Override ImagePullPolicy if provided in Task Tags
+				if imagePullPolicy, exists := task.Tags["_IMAGE_PULL_POLICY"]; exists && imagePullPolicy != "" {
+					taskCommand.(*KubernetesCommand).ImagePullPolicy = imagePullPolicy
 				}
 
 			} else {
