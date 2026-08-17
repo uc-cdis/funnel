@@ -23,6 +23,7 @@ import (
 type GenericS3 struct {
 	client   *minio.Client
 	endpoint string
+	bucket   string
 	kmskeyId string
 }
 
@@ -49,7 +50,7 @@ func NewGenericS3(conf *config.GenericS3Storage) (*GenericS3, error) {
 		return nil, fmt.Errorf("error creating generic s3 backend: %v", err)
 	}
 
-	return &GenericS3{client, endpoint + "/", conf.KmsKeyID}, nil
+	return &GenericS3{client, endpoint + "/", conf.Bucket, conf.KmsKeyID}, nil
 }
 
 // Returns true if a remote S3 object is a directory, false otherwise
@@ -268,9 +269,9 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 	}
 
 	// (assuming no prefix - can this be checked programmatically?)
+	// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
 	// (should work with both mountpoint-s3 and s3files?)
-	// TODO if url.startswith(configuration.GenericS3.Bucket):
-	outputToMountedBucket := true
+	outputToMountedBucket := strings.HasPrefix(url, "s3://"+s3.bucket+"/")
 
 	opts := minio.PutObjectOptions{}
 	if s3.kmskeyId != "" {
