@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ohsu-comp-bio/funnel/events"
+	"github.com/ohsu-comp-bio/funnel/logger"
 	"github.com/ohsu-comp-bio/funnel/storage"
 	"github.com/ohsu-comp-bio/funnel/tes"
 	"github.com/ohsu-comp-bio/funnel/util"
@@ -119,7 +121,7 @@ func FlattenOutputs(ctx context.Context, outputs []*tes.Output, store storage.St
 }
 
 // UploadOutputs uploads the outputs.
-func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Storage, ev *events.TaskWriter, parallelLimit int) ([]*tes.OutputFileLog, error) {
+func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Storage, ev *events.TaskWriter, parallelLimit int, s3FilesFilesystemId string) ([]*tes.OutputFileLog, error) {
 
 	flat, err := FlattenOutputs(ctx, outputs, store, ev)
 	if err != nil {
@@ -144,6 +146,16 @@ func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Sto
 		} else {
 			logs = append(logs, up.log)
 		}
+	}
+
+	if s3FilesFilesystemId != "" && len(errs) == 0 {
+		// When using S3Files, wait 60s after uploading output files before declaring the task
+		// complete, or the user may attempt to access output files before they are accessible.
+		// https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization.html:
+		// "S3 Files waits for a period of write inactivity (60 seconds) before exporting changes
+		// back to your S3 bucket."
+		logger.Debug("done uploading outputs, waiting 60s for S3Files to sync")
+		time.Sleep(60 * time.Second)
 	}
 
 	return logs, errs.ToError()

@@ -175,7 +175,7 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 		localMountedPath := "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(url, "s3://"+s3.mountedBucket+"/")
 		err = copyFile(ctx, localMountedPath, path)
 		if err != nil {
-			return nil, fmt.Errorf("genericS3: failed to copy file %s to %s: %v", path, localMountedPath, err)
+			return nil, fmt.Errorf("genericS3: failed to copy file %s to %s: %v", localMountedPath, path, err)
 		}
 		return &Object{
 			URL:  url,
