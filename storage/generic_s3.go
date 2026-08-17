@@ -20,6 +20,12 @@ import (
 )
 
 // GenericS3 provides access to an S3 object store.
+
+// `The mountedBucket` logic assumes that there is a mounted volume (S3 mountpoint or
+// S3Files), which should be the case when Funnel is deployed through Kubernetes and the
+// task has ioutputs. If this assumption causes issues, we can add a config flag to enable/
+// disable this logic.
+// Note: this is currently only implemented for GenericS3, not for AmazonS3.
 type GenericS3 struct {
 	client        *minio.Client
 	endpoint      string
@@ -50,14 +56,7 @@ func NewGenericS3(conf *config.GenericS3Storage) (*GenericS3, error) {
 		return nil, fmt.Errorf("error creating generic s3 backend: %v", err)
 	}
 
-	// This assumes that there is a mounted volume (S3 mountpoint or S3Files), which should be
-	// the case when Funnel is deployed through Kubernetes and the task has ioutputs. If this
-	// assumption causes issues, we can add a config flag to enable/disable this logic.
-	// Note: this is currently only implemented for GenericS3, not for AmazonS3.
-	mountedBucket := conf.Bucket
-	// mountedBucket := "s3://" + conf.Bucket + "/"
-
-	return &GenericS3{client, endpoint + "/", mountedBucket, conf.KmsKeyID}, nil
+	return &GenericS3{client, endpoint + "/", conf.Bucket, conf.KmsKeyID}, nil
 }
 
 // Returns true if a remote S3 object is a directory, false otherwise
@@ -96,9 +95,6 @@ func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
 		return &Object{
 			URL:  url,
 			Name: u.path,
-			// ETag:         info.ETag,
-			// LastModified: info.LastModified,
-			// Size:         info.Size,
 		}, nil
 	}
 
@@ -175,11 +171,7 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 	if u.bucket == s3.mountedBucket { // skip call to S3 if bucket is mounted
 		// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
 		logger.Debug("genericS3: getting object in mounted bucket", "url", url)
-		// TODO comment
-		// failed to copy file /opt/funnel/funnel-work-dir/da1lhj2vgnts73an0tg0/work/input.txt to /opt/funnel/funnel-work-dir/integration-tests/input.txt:
-		// failed to stat src file: stat /opt/funnel/funnel-work-dir/da1lhj2vgnts73an0tg0/work/input.txt: no such file or directory
-		// TODO remove task ID?
-		// mountPath: /opt/funnel/funnel-work-dir #/{{.TaskId}}
+		// use the path to the mounted bucket instead of the file's S3 URL
 		localMountedPath := "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(url, "s3://"+s3.mountedBucket+"/")
 		err = copyFile(ctx, localMountedPath, path)
 		if err != nil {
@@ -188,9 +180,6 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 		return &Object{
 			URL:  url,
 			Name: u.path,
-			// ETag:         info.ETag,
-			// LastModified: info.LastModified,
-			// Size:         info.Size,
 		}, nil
 	}
 
@@ -340,13 +329,13 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
 	}
 
+	// _PutObject: utility function that either copies a file to the mounted bucket, or uploads it
+	// if the S3 destination is not the mounted bucket
 	_PutObject := func(sourcePath string, destKey string) error {
-		// if strings.HasPrefix(url, s3.mountedBucket) {
 		if u.bucket == s3.mountedBucket { // skip call to S3 if bucket is mounted
 			// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
-			// (should work with both mountpoint-s3 and s3files?)
 			logger.Debug("genericS3: outputting to mounted bucket", "url", url)
-			// move dest to the right output path - TODO clarify this comment
+			// use the path to the mounted bucket instead of the file's S3 URL
 			localMountedPath := "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(url, "s3://"+s3.mountedBucket+"/")
 			err = copyFile(ctx, sourcePath, localMountedPath)
 			if err != nil {
@@ -376,7 +365,6 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 					return err
 				}
 				uploadPath := filepath.Join(u.path, relativePath)
-				// _, err = s3.client.FPutObject(ctx, u.bucket, uploadPath, filePath, opts)
 				err = _PutObject(filePath, uploadPath)
 				if err != nil {
 					return fmt.Errorf("genericS3: putting nested object %s: %v", url, err)
@@ -388,10 +376,6 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 			return nil, err
 		}
 	} else {
-		// _, err = s3.client.FPutObject(ctx, u.bucket, u.path, path, opts)
-		// OR
-		// fileDest = "/opt/funnel/funnel-work-dir/" + fileDest
-		// err = copyFile(ctx, path, fileDest)
 		err := _PutObject(path, u.path)
 		if err != nil {
 			return nil, err
@@ -415,7 +399,6 @@ func (s3 *GenericS3) UnsupportedOperations(url string) UnsupportedOperations {
 	if err != nil {
 		return AllUnsupported(err)
 	}
-	// if strings.HasPrefix(url, s3.mountedBucket) {
 	if u.bucket == s3.mountedBucket { // skip call to S3 if bucket is mounted
 		return AllSupported()
 	}
