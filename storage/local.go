@@ -148,6 +148,12 @@ func copyFile(ctx context.Context, source string, dest string) (err error) {
 	}
 	defer sf.Close()
 
+	// Create dest parent directories if they do not exist
+	dir := filepath.Dir(dest)
+	if err := os.MkdirAll(dir, 0775); err != nil {
+		return err
+	}
+
 	// Create and open dest file for writing
 	df, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0775)
 	if err != nil {

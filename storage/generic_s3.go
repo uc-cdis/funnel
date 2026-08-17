@@ -35,7 +35,6 @@ func NewGenericS3(conf *config.GenericS3Storage) (*GenericS3, error) {
 		endpoint = s3util.ParseEndpoint(conf.Endpoint)
 	}
 
-	logger := logger.NewLogger("GenericS3", logger.DefaultConfig())
 	logger.Debug("generics3: connecting to endpoint", "endpoint", endpoint)
 
 	client, err := minio.New(
@@ -80,7 +79,6 @@ func isDir(ctx context.Context, minioClient *minio.Client, bucketName, objectNam
 
 // Stat returns information about the object at the given storage URL.
 func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
-	logger := logger.NewLogger("GenericS3", logger.DefaultConfig())
 	u, err := s3.parse(url)
 	if err != nil {
 		return nil, err
@@ -149,7 +147,6 @@ func (s3 *GenericS3) List(ctx context.Context, url string) ([]*Object, error) {
 
 // Get copies an object from S3 to the host path.
 func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error) {
-	logger := logger.NewLogger("GenericS3", logger.DefaultConfig())
 	logger.Debug("genericS3: Get called", "url", url, "path", path)
 
 	obj, err := s3.Stat(ctx, url)
@@ -270,6 +267,11 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		return nil, err
 	}
 
+	// (assuming no prefix - can this be checked programmatically?)
+	// (should work with both mountpoint-s3 and s3files?)
+	// TODO if url.startswith(configuration.GenericS3.Bucket):
+	outputToMountedBucket := true
+
 	opts := minio.PutObjectOptions{}
 	if s3.kmskeyId != "" {
 		logger.Debug("genericS3: using KMS encryption for upload", "kmsKeyId", s3.kmskeyId)
@@ -317,6 +319,7 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 					return err
 				}
 				uploadPath := filepath.Join(u.path, relativePath)
+				// TODO here too
 				_, err = s3.client.FPutObject(ctx, u.bucket, uploadPath, filePath, opts)
 				if err != nil {
 					return fmt.Errorf("genericS3: putting nested object %s: %v", url, err)
@@ -328,9 +331,21 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 			return nil, err
 		}
 	} else {
-		_, err = s3.client.FPutObject(ctx, u.bucket, u.path, path, opts)
-		if err != nil {
-			return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
+		if !outputToMountedBucket {
+			logger.Debug("genericS3: not outputting to mounted bucket, output URL does not match", "url", url)
+			_, err = s3.client.FPutObject(ctx, u.bucket, u.path, path, opts)
+			if err != nil {
+				return nil, fmt.Errorf("genericS3: putting object %s: %v", url, err)
+			}
+		} else {
+			logger.Debug("genericS3: outputting to mounted bucket", "url", url)
+			fileDest := strings.TrimPrefix(url, "s3://gen3wf-localhost-1/")
+			// move dest to the right output path - TODO clarify this comment
+			fileDest = "/opt/funnel/funnel-work-dir/" + fileDest
+			err = copyFile(ctx, path, fileDest)
+			if err != nil {
+				return nil, fmt.Errorf("genericS3: failed to copy file %s: %v", path, err)
+			}
 		}
 	}
 
