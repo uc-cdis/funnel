@@ -336,7 +336,7 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 			// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
 			logger.Debug("genericS3: outputting to mounted bucket", "url", url)
 			// use the path to the mounted bucket instead of the file's S3 URL
-			localMountedPath := "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(url, "s3://"+s3.mountedBucket+"/")
+			localMountedPath := "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(destKey, "s3://"+s3.mountedBucket+"/")
 			err = copyFile(ctx, sourcePath, localMountedPath)
 			if err != nil {
 				return fmt.Errorf("genericS3: failed to copy file %s to %s: %v", sourcePath, localMountedPath, err)
