@@ -55,8 +55,6 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 						pathPrefix = genericS3Store.GetLocalMountedPath(input.Url)
 					}
 				}
-			} else {
-				return nil, fmt.Errorf("expected store to be a storage.Mux")
 			}
 
 			list, err := store.List(ctx, input.Url)
@@ -183,7 +181,7 @@ func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Sto
 		// https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization.html:
 		// "S3 Files waits for a period of write inactivity (60 seconds) before exporting changes
 		// back to your S3 bucket."
-		logger.Debug("done uploading outputs, waiting 60s for S3Files to sync")
+		logger.Debug("done uploading outputs, waiting for S3Files to sync")
 		time.Sleep(70 * time.Second) // TODO revert to 60s once we have a more robust check
 	}
 
