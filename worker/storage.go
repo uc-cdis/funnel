@@ -31,7 +31,16 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 
 		case tes.Directory:
 
-			prefix := strings.TrimSuffix(input.Url, "/") + "/"
+			pathPrefix := strings.TrimSuffix(input.Url, "/") + "/"
+
+			// If the storage backend is GenericS3 and this input is in the GenericS3 mounted
+			// bucket, listing the directory files returns URLs prefixed with the path to the
+			// mounted bucket instead of the direct s3 path => update `pathPrefix`.
+			// Example:
+			// The URL is "/opt/funnel/funnel-work-dir/mydir/file.txt"
+			// instead of "s3://mybucket/mydir/file.txt",
+			// and the prefix to trim is "/opt/funnel/funnel-work-dir/mydir"
+			// instead of "s3://mybucket/mydir".
 			if muxStore, ok := store.(*storage.Mux); ok {
 				backend, err := muxStore.FindBackend(input.Url, storage.GetOp)
 				if err != nil {
@@ -42,13 +51,12 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 					if err != nil {
 						return nil, err
 					}
-					// trim the appropriate prefix if bucket is mounted
-					if genericS3Store.IsMountedBucket(u.GetBucket()) {
-						prefix = "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(input.Url, "s3://"+genericS3Store.MountedBucket+"/")
+					if genericS3Store.IsThisBucketMounted(u.GetBucket()) {
+						pathPrefix = genericS3Store.GetLocalMountedPath(input.Url)
 					}
 				}
 			} else {
-				return nil, fmt.Errorf("store should be a storage.Mux")
+				return nil, fmt.Errorf("expected store to be a storage.Mux")
 			}
 
 			list, err := store.List(ctx, input.Url)
@@ -64,7 +72,7 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 			for _, obj := range list {
 				flat = append(flat, &tes.Input{
 					Url:  obj.URL,
-					Path: filepath.Join(input.Path, strings.TrimPrefix(obj.URL, prefix)),
+					Path: filepath.Join(input.Path, strings.TrimPrefix(obj.URL, pathPrefix)),
 				})
 			}
 		}
