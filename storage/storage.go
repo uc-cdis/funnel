@@ -84,3 +84,7 @@ func AllUnsupported(err error) UnsupportedOperations {
 type urlparts struct {
 	bucket, path string
 }
+
+func (u urlparts) GetBucket() string {
+	return u.bucket
+}

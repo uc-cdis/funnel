@@ -30,6 +30,27 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 			flat = append(flat, input)
 
 		case tes.Directory:
+
+			prefix := strings.TrimSuffix(input.Url, "/") + "/"
+			if muxStore, ok := store.(*storage.Mux); ok {
+				backend, err := muxStore.FindBackend(input.Url, storage.GetOp)
+				if err != nil {
+					return nil, err
+				}
+				if genericS3Store, ok := backend.(*storage.GenericS3); ok {
+					u, err := genericS3Store.Parse(input.Url)
+					if err != nil {
+						return nil, err
+					}
+					// trim the appropriate prefix if bucket is mounted
+					if genericS3Store.IsMountedBucket(u.GetBucket()) {
+						prefix = "/opt/funnel/funnel-work-dir/" + strings.TrimPrefix(input.Url, "s3://"+genericS3Store.MountedBucket+"/")
+					}
+				}
+			} else {
+				return nil, fmt.Errorf("store should be a storage.Mux")
+			}
+
 			list, err := store.List(ctx, input.Url)
 			if err != nil {
 				return nil, fmt.Errorf("listing directory: %s", err)
@@ -43,7 +64,7 @@ func FlattenInputs(ctx context.Context, inputs []*tes.Input, store storage.Stora
 			for _, obj := range list {
 				flat = append(flat, &tes.Input{
 					Url:  obj.URL,
-					Path: filepath.Join(input.Path, strings.TrimPrefix(obj.URL, strings.TrimSuffix(input.Url, "/")+"/")),
+					Path: filepath.Join(input.Path, strings.TrimPrefix(obj.URL, prefix)),
 				})
 			}
 		}
