@@ -100,10 +100,8 @@ func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
 	}
 
 	if s3.IsThisBucketMounted(u.bucket) { // skip call to S3 if bucket is mounted
-		return &Object{
-			URL:  url,
-			Name: u.path,
-		}, nil
+		local := &Local{}
+		return local.Stat(ctx, s3.GetLocalMountedPath(url))
 	}
 
 	opts := minio.GetObjectOptions{}
@@ -408,12 +406,11 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) ([]*Object, erro
 				if err != nil {
 					return fmt.Errorf("genericS3: putting nested object %s: %v", url, err)
 				}
-				url, err = neturl.JoinPath(url, relativePath)
+				fullUrl, err := neturl.JoinPath(url, relativePath)
 				if err != nil {
 					return fmt.Errorf("genericS3: generating url for nested object %s %s: %v", url, relativePath, err)
 				}
-
-				obj, err := s3.Stat(ctx, url)
+				obj, err := s3.Stat(ctx, fullUrl)
 				if err != nil {
 					return err
 				}
