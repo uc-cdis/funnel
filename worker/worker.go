@@ -348,7 +348,10 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 	}
 
 	if run.syserr == nil && r.Conf.ScratchPath != "" {
-		mapper.CopyOutputsToWorkDir(r.Conf.ScratchPath)
+		err := mapper.CopyOutputsToWorkDir(r.Conf.ScratchPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Upload outputs regardless of executor error — the user needs the output
@@ -369,13 +372,56 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 		}
 	}
 
-	// unmap paths for OutputFileLog
+	// TODO update comment
+	// GA4GH Task Execution Service (TES) specification, the root-level outputs field defines the intended, desired output files declared when submitting a task, whereas logs.outputs records the actual result and metadata of output files produced and uploaded after execution finishes.
+	event.Info("Run outputLog", "len(outputLog)", len(outputLog))
+	var outputLogExpanded []*tes.OutputFileLog
 	for _, o := range outputLog {
+		// TODO if it's a directory, list the outputs
+		// {"path":"/pauline/test","size_bytes":"0","url":"s3://gen3wf-localhost-1/integration-tests/mydir"}
+		event.Info("Run outputLog before", "o", o)
+		fileInfo, err := os.Stat(o.Path)
+		if err != nil {
+			event.Error("error getting output '%s' info: %v", o.Path, err)
+			return err
+		}
+		event.Info("Run outputLog", "fileInfo", fileInfo)
+		event.Info("Run outputLog", "fileInfo.IsDir()", fileInfo.IsDir())
+		if !fileInfo.IsDir() {
+			outputLogExpanded = append(outputLogExpanded, o)
+		} else {
+			err = filepath.Walk(o.Path, func(filePath string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				event.Info("Run outputLog", "filePath", filePath, "info", info.IsDir())
+				if !info.IsDir() {
+					relativePath, err := filepath.Rel(o.Path, filePath)
+					if err != nil {
+						return err
+					}
+					o.Path = filePath
+					o.Url = filepath.Join(o.Url, relativePath)
+					event.Info("Run outputLog", "o", o)
+					outputLogExpanded = append(outputLogExpanded, o)
+				}
+				return nil
+			})
+			if err != nil {
+				event.Error("error expanding output '%s': %v", o.Path, err)
+				return err
+			}
+		}
+		event.Info("Run outputLog after", "o", o)
+	}
+
+	// unmap paths for OutputFileLog
+	for _, o := range outputLogExpanded {
 		o.Path = mapper.ContainerPath(o.Path)
 	}
 
-	if len(outputLog) > 0 {
-		event.Outputs(outputLog)
+	if len(outputLogExpanded) > 0 {
+		event.Outputs(outputLogExpanded)
 	}
 
 	return

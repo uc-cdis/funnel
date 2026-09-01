@@ -58,7 +58,7 @@ func (l *Logger) SetLevel(lvl string) {
 	case "error":
 		l.logrus.Level = logrus.ErrorLevel
 	default:
-		l.logrus.Level = logrus.InfoLevel
+		l.logrus.Level = logrus.DebugLevel
 	}
 }
 
