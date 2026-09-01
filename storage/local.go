@@ -80,7 +80,7 @@ func (local *Local) Get(ctx context.Context, url, path string) (*Object, error) 
 }
 
 // Put copies a file from the hostPath into storage.
-func (local *Local) Put(ctx context.Context, url, path string) (*Object, error) {
+func (local *Local) Put(ctx context.Context, url, path string) ([]*Object, error) {
 	target := getPath(url)
 	err := fsutil.EnsurePath(target)
 	if err != nil {
@@ -91,7 +91,12 @@ func (local *Local) Put(ctx context.Context, url, path string) (*Object, error) 
 	if err != nil {
 		return nil, err
 	}
-	return local.Stat(ctx, url)
+
+	obj, err := local.Stat(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return []*Object{obj}, nil
 }
 
 // Join joins the given URL with the given subpath.

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ohsu-comp-bio/funnel/events"
-	"github.com/ohsu-comp-bio/funnel/logger"
 	"github.com/ohsu-comp-bio/funnel/server"
 	"github.com/ohsu-comp-bio/funnel/tes"
 	"github.com/ohsu-comp-bio/funnel/util"
@@ -18,8 +17,6 @@ import (
 
 // WriteEvent creates an event for the server to handle.
 func (db *Postgres) WriteEvent(ctx context.Context, req *events.Event) error {
-	logger := logger.NewLogger("postgres", logger.DefaultConfig())
-
 	ctx, cancel := db.context()
 	defer cancel()
 

@@ -174,7 +174,7 @@ func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Sto
 		if up.err != nil {
 			errs = append(errs, up.err)
 		} else {
-			logs = append(logs, up.log)
+			logs = append(logs, up.logs...)
 		}
 	}
 
@@ -207,8 +207,10 @@ func (d *download) Path() string {
 func (d *download) Started() {
 	d.ev.Info("download started", "url", d.in.Url)
 }
-func (d *download) Finished(obj *storage.Object) {
-	d.ev.Info("download finished", "url", d.in.Url, "size", obj.Size, "etag", obj.ETag)
+func (d *download) Finished(objs []*storage.Object) {
+	for _, obj := range objs {
+		d.ev.Info("download finished", "url", d.in.Url, "size", obj.Size, "etag", obj.ETag)
+	}
 }
 func (d *download) Failed(err error) {
 	d.ev.Error("download failed", "url", d.in.Url, "error", err)
@@ -219,8 +221,13 @@ func (d *download) Failed(err error) {
 type upload struct {
 	ev  *events.TaskWriter
 	out *tes.Output
-	log *tes.OutputFileLog
-	err error
+	// In the GA4GH TES spec, the root-level `outputs` field defines the intended, desired output
+	// files declared when submitting a task, whereas `logs.outputs` records the actual result and
+	// metadata of output files produced and uploaded after execution finishes.
+	// A single `upload` action can therefore result in multiple `OutputFileLog` objects: when
+	// uploading a directory, we record an output log for each file in the directory.
+	logs []*tes.OutputFileLog
+	err  error
 }
 
 func (u *upload) URL() string {
@@ -232,13 +239,18 @@ func (u *upload) Path() string {
 func (u *upload) Started() {
 	u.ev.Info("upload started", "url", u.out.Url)
 }
-func (u *upload) Finished(obj *storage.Object) {
-	u.log = &tes.OutputFileLog{
-		Url:       obj.URL,
-		Path:      u.out.Path,
-		SizeBytes: fmt.Sprintf("%d", obj.Size),
+func (u *upload) Finished(objs []*storage.Object) {
+	u.logs = []*tes.OutputFileLog{}
+	for _, obj := range objs {
+		u.logs = append(u.logs,
+			&tes.OutputFileLog{
+				Url:       obj.URL,
+				Path:      u.out.Path,
+				SizeBytes: fmt.Sprintf("%d", obj.Size),
+			},
+		)
+		u.ev.Info("upload finished", "url", obj.URL, "etag", obj.ETag, "size", obj.Size)
 	}
-	u.ev.Info("upload finished", "url", obj.URL, "etag", obj.ETag, "size", obj.Size)
 }
 func (u *upload) Failed(err error) {
 	u.err = err

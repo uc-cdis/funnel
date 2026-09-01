@@ -125,7 +125,7 @@ func (mux *Mux) Get(ctx context.Context, url, path string) (*Object, error) {
 
 // Put uploads a file to a storage system at the given "url".
 // The file is uploaded from the given local "path".
-func (mux *Mux) Put(ctx context.Context, url, path string) (*Object, error) {
+func (mux *Mux) Put(ctx context.Context, url, path string) ([]*Object, error) {
 	backend, err := mux.FindBackend(url, putOp)
 	if err != nil {
 		return nil, err

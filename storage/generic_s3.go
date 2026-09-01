@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -326,7 +327,7 @@ func download(ctx context.Context, client *minio.Client, bucket, objectPath, fil
 
 // Put copies an object (file) from the host path to S3.
 // Update Put function to be able to upload directories (a la Get() function)
-func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error) {
+func (s3 *GenericS3) Put(ctx context.Context, url, path string) ([]*Object, error) {
 	u, err := s3.Parse(url)
 	if err != nil {
 		return nil, err
@@ -387,6 +388,8 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		return nil
 	}
 
+	objs := []*Object{}
+
 	// Check if the path is a directory
 	if fileInfo.IsDir() {
 		// Walk the directory and upload all files and subdirectories
@@ -405,6 +408,16 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 				if err != nil {
 					return fmt.Errorf("genericS3: putting nested object %s: %v", url, err)
 				}
+				url, err = neturl.JoinPath(url, relativePath)
+				if err != nil {
+					return fmt.Errorf("genericS3: generating url for nested object %s %s: %v", url, relativePath, err)
+				}
+
+				obj, err := s3.Stat(ctx, url)
+				if err != nil {
+					return err
+				}
+				objs = append(objs, obj)
 			}
 			return nil
 		})
@@ -416,11 +429,14 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) (*Object, error)
 		if err != nil {
 			return nil, err
 		}
+		obj, err := s3.Stat(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+		objs = append(objs, obj)
 	}
 
-	obj, err := s3.Stat(ctx, url)
-
-	return obj, err
+	return objs, nil
 }
 
 // Join joins the given URL with the given subpath.
