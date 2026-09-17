@@ -101,7 +101,12 @@ func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
 
 	if s3.IsThisBucketMounted(u.bucket) { // skip call to S3 if bucket is mounted
 		local := &Local{}
-		return local.Stat(ctx, s3.GetLocalMountedPath(url))
+		obj, err := local.Stat(ctx, s3.GetLocalMountedPath(url))
+		if err != nil {
+			return nil, err
+		}
+		obj.URL = url // overwrite the local mounted path
+		return obj, nil
 	}
 
 	opts := minio.GetObjectOptions{}
