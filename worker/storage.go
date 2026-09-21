@@ -185,7 +185,7 @@ func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Sto
 		// "S3 Files waits for a period of write inactivity (60 seconds) before exporting changes
 		// back to your S3 bucket."
 		logger.Debug("done uploading outputs, waiting for S3Files to sync")
-		time.Sleep(70 * time.Second) // TODO revert to 60s once we have a more robust check
+		time.Sleep(60 * time.Second)
 	}
 
 	return logs, errs.ToError()

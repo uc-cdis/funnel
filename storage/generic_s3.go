@@ -68,7 +68,15 @@ func (s3 *GenericS3) GetLocalMountedPath(url string) string {
 }
 
 // Returns true if a remote S3 object is a directory, false otherwise
-func isDir(ctx context.Context, minioClient *minio.Client, bucketName, objectName string) (bool, error) {
+func (s3 *GenericS3) isDir(ctx context.Context, minioClient *minio.Client, url string, bucketName string, objectName string) (bool, error) {
+	if s3.IsThisBucketMounted(bucketName) { // skip call to S3 if bucket is mounted
+		fileInfo, err := os.Stat(s3.GetLocalMountedPath(url))
+		if err != nil {
+			return false, err
+		}
+		return fileInfo.IsDir(), nil
+	}
+
 	// Check if the objectName ends with '/' - often used to represent 'folders'
 	if strings.HasSuffix(objectName, "/") {
 		return true, nil
@@ -117,7 +125,7 @@ func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
 		return nil, fmt.Errorf("genericS3: getting object %s in bucket %s: %s", u.path, u.bucket, err)
 	}
 
-	isDir, err := isDir(ctx, s3.client, u.bucket, u.path)
+	isDir, err := s3.isDir(ctx, s3.client, url, u.bucket, u.path)
 	if err != nil {
 		return nil, fmt.Errorf("genericS3: stat object %s in bucket %s: %s", u.path, u.bucket, err)
 	}
@@ -187,12 +195,12 @@ func (s3 *GenericS3) List(ctx context.Context, url string) ([]*Object, error) {
 func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error) {
 	logger.Debug("genericS3: 'Get' called", "url", url, "path", path)
 
-	u, err := s3.Parse(url)
+	obj, err := s3.Stat(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := s3.Stat(ctx, url)
+	u, err := s3.Parse(url)
 	if err != nil {
 		return nil, err
 	}
@@ -218,22 +226,12 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 		return nil
 	}
 
-	var isDirectory bool
-	if s3.IsThisBucketMounted(u.bucket) { // skip call to S3 if bucket is mounted
-		// TODO move this to isDir
-		fileInfo, err := os.Stat(s3.GetLocalMountedPath(url))
-		if err != nil {
-			return nil, err
-		}
-		isDirectory = fileInfo.IsDir()
-	} else {
-		isDirectory, err = isDir(ctx, s3.client, u.bucket, u.path)
-		if err != nil {
-			logger.Debug("genericS3: error while checking directory", "bucket", u.bucket, "path", u.path, "err", err)
-			return nil, fmt.Errorf("genericS3: getting object from isDir %s: %v", url, err)
-		}
+	isDir, err := s3.isDir(ctx, s3.client, url, u.bucket, u.path)
+	if err != nil {
+		logger.Debug("genericS3: error while checking directory", "bucket", u.bucket, "path", u.path, "err", err)
+		return nil, fmt.Errorf("genericS3: getting object from isDir %s: %v", url, err)
 	}
-	if isDirectory {
+	if isDir {
 		objects, err := s3.List(ctx, url)
 		if err != nil {
 			return nil, err
