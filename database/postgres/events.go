@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ohsu-comp-bio/funnel/events"
+	"github.com/ohsu-comp-bio/funnel/logger"
 	"github.com/ohsu-comp-bio/funnel/server"
 	"github.com/ohsu-comp-bio/funnel/tes"
 	"github.com/ohsu-comp-bio/funnel/util"
@@ -22,6 +23,7 @@ func (db *Postgres) WriteEvent(ctx context.Context, req *events.Event) error {
 
 	selector := req.Id
 
+	logger.Debug("Postgres", "WriteEvent request:", req)
 	switch req.Type {
 
 	// Task Created

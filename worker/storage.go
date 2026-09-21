@@ -181,9 +181,11 @@ func UploadOutputs(ctx context.Context, outputs []*tes.Output, store storage.Sto
 	if s3FilesFilesystemId != "" && len(uploads) > 0 && len(errs) == 0 {
 		// When using S3Files, wait after uploading output files before declaring the task
 		// complete, or the user may attempt to access output files before they are accessible.
-		// https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization.html:
+		// See https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-synchronization.html:
 		// "S3 Files waits for a period of write inactivity (60 seconds) before exporting changes
 		// back to your S3 bucket."
+		// NOTE: The file uploads _start_ after 60s but may not complete for a while. Waiting for
+		// outputs to be fully uploaded can be managed on the client side.
 		logger.Debug("done uploading outputs, waiting for S3Files to sync")
 		time.Sleep(60 * time.Second)
 	}

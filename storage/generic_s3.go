@@ -113,7 +113,7 @@ func (s3 *GenericS3) Stat(ctx context.Context, url string) (*Object, error) {
 		if err != nil {
 			return nil, err
 		}
-		obj.URL = url // overwrite the local mounted path
+		obj.URL = url // overwrite the local path returned by `Stat`, set it to the original url
 		return obj, nil
 	}
 
