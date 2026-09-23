@@ -208,7 +208,7 @@ func (s3 *GenericS3) Get(ctx context.Context, url, path string) (*Object, error)
 	// _GetObject: utility function that either copies a file from the mounted bucket, or downloads it if the source is not the mounted S3 bucket
 	_GetObject := func(sourcePath string, destPath string) error {
 		if s3.IsThisBucketMounted(u.bucket) { // skip call to S3 if bucket is mounted
-			// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
+			// TODO (MIDRC-1353) Add "funnel-temp-files" prefix back to separate temp files from the rest
 			logger.Debug("genericS3: getting input from mounted bucket", "sourcePath", sourcePath)
 			// use the path to the mounted bucket instead of the file's S3 URL
 			localMountedPath := s3.GetLocalMountedPath(url)
@@ -371,7 +371,7 @@ func (s3 *GenericS3) Put(ctx context.Context, url, path string) ([]*Object, erro
 	// if the destination is not the mounted S3 bucket
 	_PutObject := func(sourcePath string, destPath string) error {
 		if s3.IsThisBucketMounted(u.bucket) { // skip call to S3 if bucket is mounted
-			// TODO add "funnel-temp-files" prefix back to separate temp files from the rest
+			// TODO (MIDRC-1353) Add "funnel-temp-files" prefix back to separate temp files from the rest
 			logger.Debug("genericS3: outputting to mounted bucket", "destPath", destPath)
 			// use the path to the mounted bucket instead of the file's S3 URL
 			localMountedPath := s3.GetLocalMountedPath(destPath)

@@ -118,8 +118,8 @@ func FlattenOutputs(ctx context.Context, outputs []*tes.Output, store storage.St
 	var flat []*tes.Output
 	for _, output := range outputs {
 		// NOTE: this is the TES task's `outputs.type` field, which is user-specified and may not
-		// be accurate! The downstream `Put` function that uploads outputs may still detects
-		// directories and upload them correctly when the type is `File` (e.g. `GenericS3.Put`)
+		// be accurate! The downstream `Put` function that uploads outputs may still detect
+		// directories and upload them correctly even when the type is `File` (e.g. `GenericS3.Put`)
 		switch output.Type {
 		case tes.File:
 			flat = append(flat, output)
@@ -223,8 +223,8 @@ func (d *download) Failed(err error) {
 type upload struct {
 	ev  *events.TaskWriter
 	out *tes.Output
-	// In the GA4GH TES spec, the root-level `outputs` field defines the intended, desired output
-	// files declared when submitting a task, whereas `logs.outputs` records the actual result and
+	// In the GA4GH TES spec, the root-level `outputs` field defines the intended output files
+	// declared when submitting a task, whereas `logs.outputs` records the actual result and
 	// metadata of output files produced and uploaded after execution finishes.
 	// A single `upload` action can therefore result in multiple `OutputFileLog` objects: when
 	// uploading a directory, we record an output log for each file in the directory.
