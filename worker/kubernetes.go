@@ -28,20 +28,21 @@ import (
 
 // KubernetesCommand is responsible for configuring and running a task in a Kubernetes cluster.
 type KubernetesCommand struct {
-	TaskId         string
-	JobId          int
-	StdinFile      string
-	StdoutFile     string
-	StderrFile     string
-	TaskTemplate   string
-	Namespace      string // Funnel Server Namespace
-	JobsNamespace  string // Funnel Worker + Executor Namespace (default: Namespace)
-	NodeSelector   map[string]string
-	Tolerations    []map[string]interface{}
-	Resources      *tes.Resources
-	ResourceLimits *tes.Resources
-	ServiceAccount string
-	NeedsPVC       bool
+	TaskId          string
+	JobId           int
+	StdinFile       string
+	StdoutFile      string
+	StderrFile      string
+	TaskTemplate    string
+	Namespace       string // Funnel Server Namespace
+	JobsNamespace   string // Funnel Worker + Executor Namespace (default: Namespace)
+	NodeSelector    map[string]string
+	Tolerations     []map[string]interface{}
+	Resources       *tes.Resources
+	ResourceLimits  *tes.Resources
+	ServiceAccount  string
+	ImagePullPolicy string
+	NeedsPVC        bool
 	// PVCMode mirrors config.Kubernetes.PVCMode ("full", "pvc", or "shared").
 	// In "shared" mode the executor job mounts the shared PVC (SharedPVCName);
 	// otherwise it mounts the task's own PVC, created server-side
@@ -182,6 +183,7 @@ func (kcmd KubernetesCommand) Run(ctx context.Context) error {
 		"RamGbLimit":         kcmd.ResourceLimits.RamGb,
 		"DiskGbLimit":        kcmd.ResourceLimits.DiskGb,
 		"Image":              kcmd.Image,
+		"ImagePullPolicy":    kcmd.ImagePullPolicy,
 		"NeedsPVC":           kcmd.NeedsPVC,
 		"PVCName":            kcmd.pvcName(),
 		"NodeSelector":       kcmd.NodeSelector,

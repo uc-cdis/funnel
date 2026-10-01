@@ -50,7 +50,7 @@ func (b *HTSGET) List(ctx context.Context, url string) ([]*Object, error) {
 }
 
 // Not supported with HTSGET.
-func (b *HTSGET) Put(ctx context.Context, url, path string) (*Object, error) {
+func (b *HTSGET) Put(ctx context.Context, url, path string) ([]*Object, error) {
 	return nil, fmt.Errorf("htsgetStorage: Put operation is not supported")
 }
 

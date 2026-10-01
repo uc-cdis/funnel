@@ -455,6 +455,9 @@ Kubernetes:
   # running Funnel server pod).
   WorkerImage: ""
 
+  # Configure this when using S3Files as PV backend
+  S3FilesFilesystemId: ''
+
 # -------------------------------------------------------------------------------
 # Storage
 # -------------------------------------------------------------------------------

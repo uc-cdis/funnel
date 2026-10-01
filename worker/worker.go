@@ -21,11 +21,12 @@ import (
 // sequential process of task initialization, execution, finalization,
 // and logging.
 type DefaultWorker struct {
-	Executor    Executor
-	Conf        *config.Worker
-	Store       storage.Storage
-	TaskReader  TaskReader
-	EventWriter events.Writer
+	Executor            Executor
+	Conf                *config.Worker
+	S3FilesFilesystemId string
+	Store               storage.Storage
+	TaskReader          TaskReader
+	EventWriter         events.Writer
 	Command
 }
 
@@ -238,28 +239,34 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 				}
 
 				taskCommand = &KubernetesCommand{
-					TaskId:         task.Id,
-					JobId:          i,
-					StdinFile:      d.Stdin,
-					StdoutFile:     d.Stdout,
-					StderrFile:     d.Stderr,
-					TaskTemplate:   r.Executor.Template,
-					Namespace:      r.Executor.Namespace,
-					JobsNamespace:  r.Executor.JobsNamespace,
-					Resources:      resources,
-					ResourceLimits: resourceLimits,
-					Command:        command,
-					NeedsPVC:       len(task.GetInputs()) > 0 || len(task.GetOutputs()) > 0 || len(task.GetVolumes()) > 0,
-					PVCMode:        r.Executor.PVCMode,
-					SharedPVCName:  r.Executor.SharedPVCName,
-					NodeSelector:   r.Executor.NodeSelector,
-					Tolerations:    r.Executor.Tolerations,
-					ServiceAccount: fmt.Sprintf("funnel-worker-sa-%s-%s", r.Executor.JobsNamespace, task.Id),
+					TaskId:          task.Id,
+					JobId:           i,
+					StdinFile:       d.Stdin,
+					StdoutFile:      d.Stdout,
+					StderrFile:      d.Stderr,
+					TaskTemplate:    r.Executor.Template,
+					Namespace:       r.Executor.Namespace,
+					JobsNamespace:   r.Executor.JobsNamespace,
+					Resources:       resources,
+					ResourceLimits:  resourceLimits,
+					Command:         command,
+					NeedsPVC:        len(task.GetInputs()) > 0 || len(task.GetOutputs()) > 0 || len(task.GetVolumes()) > 0,
+					PVCMode:         r.Executor.PVCMode,
+					SharedPVCName:   r.Executor.SharedPVCName,
+					NodeSelector:    r.Executor.NodeSelector,
+					Tolerations:     r.Executor.Tolerations,
+					ServiceAccount:  fmt.Sprintf("funnel-worker-sa-%s-%s", r.Executor.JobsNamespace, task.Id),
+					ImagePullPolicy: "Always",
 				}
 
 				// Override ServiceAccountName if provided in Task Tags
 				if saName, exists := task.Tags["_WORKER_SA"]; exists && saName != "" {
 					taskCommand.(*KubernetesCommand).ServiceAccount = saName
+				}
+
+				// Override ImagePullPolicy if provided in Task Tags
+				if imagePullPolicy, exists := task.Tags["_IMAGE_PULL_POLICY"]; exists && imagePullPolicy != "" {
+					taskCommand.(*KubernetesCommand).ImagePullPolicy = imagePullPolicy
 				}
 
 			} else {
@@ -347,7 +354,10 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 	}
 
 	if run.syserr == nil && r.Conf.ScratchPath != "" {
-		mapper.CopyOutputsToWorkDir(r.Conf.ScratchPath)
+		err := mapper.CopyOutputsToWorkDir(r.Conf.ScratchPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Upload outputs regardless of executor error — the user needs the output
@@ -356,7 +366,7 @@ func (r *DefaultWorker) Run(pctx context.Context) (runerr error) {
 	var outputLog []*tes.OutputFileLog
 	if run.syserr == nil {
 		var uploadErr error
-		outputLog, uploadErr = UploadOutputs(ctx, mapper.Outputs, r.Store, event, int(r.Conf.MaxParallelTransfers))
+		outputLog, uploadErr = UploadOutputs(ctx, mapper.Outputs, r.Store, event, int(r.Conf.MaxParallelTransfers), r.S3FilesFilesystemId)
 		if uploadErr != nil {
 			if run.execerr != nil {
 				// The executor already failed; treat upload errors as warnings so the

@@ -83,7 +83,7 @@ func (s *SDA) Join(url, path string) (string, error) {
 }
 
 // Not supported with SDA.
-func (b *SDA) Put(ctx context.Context, url, path string) (*Object, error) {
+func (b *SDA) Put(ctx context.Context, url, path string) ([]*Object, error) {
 	return nil, fmt.Errorf("sdaStorage: Put operation is not supported")
 }
 

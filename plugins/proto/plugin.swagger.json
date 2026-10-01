@@ -226,6 +226,13 @@
         "Plugins": {
           "$ref": "#/definitions/configPlugins",
           "title": "Plugins"
+        },
+        "HTSGETStorage": {
+          "$ref": "#/definitions/configHTSGETStorage",
+          "title": "GA4GH storage (GDI): htsget:// and sda:// task inputs"
+        },
+        "SDAStorage": {
+          "$ref": "#/definitions/configSDAStorage"
         }
       },
       "description": "Config describes configuration for Funnel."
@@ -450,6 +457,20 @@
       },
       "description": "HPCBackend describes the configuration for an HPC scheduler backend."
     },
+    "configHTSGETStorage": {
+      "type": "object",
+      "properties": {
+        "ServiceURL": {
+          "type": "string",
+          "title": "Actual service used for fetching the files (e.g. 'https://some.host:8443/htsget/')"
+        },
+        "Timeout": {
+          "$ref": "#/definitions/configTimeoutConfig",
+          "description": "Timeout for each HTSGET request."
+        }
+      },
+      "description": "HTSGETStorage configures the storage backend for the HTSGET protocol.\nWhen ServiceURL is a valid http(s) URL, task inputs with the prefix\n\"htsget://{reads|variants}/\" become supported."
+    },
     "configHTTPStorage": {
       "type": "object",
       "properties": {
@@ -553,6 +574,26 @@
             "type": "string"
           },
           "description": "ForbiddenPathPrefixes are container paths that user-submitted tasks are not\nallowed to mount inputs, outputs, volumes, or working directories into.\nMounting over these would expose or clobber sensitive host/kernel\ninterfaces. Funnel defaults to /dev, /proc, /sys, /run, and /var/run.\nA configured non-empty list replaces those defaults."
+        },
+        "PVCMode": {
+          "type": "string",
+          "description": "PVCMode controls how per-task storage is provisioned. One of:\n  \"full\"   - a dedicated PV + PVC per task (PVTemplate/PVCTemplate,\n             statically bound, S3 CSI-backed). Default/upstream behavior.\n  \"pvc\"    - only a dedicated PVC per task (PVCTemplate), dynamically\n             provisioned via StorageClassName. No cluster-scoped PV is\n             created, so no ClusterRole is required.\n  \"shared\" - nothing is created per task; worker/executor jobs mount a\n             single pre-existing PVC (SharedPVCName), isolated by subPath.\nAn empty value is treated as \"full\"."
+        },
+        "StorageClassName": {
+          "type": "string",
+          "description": "StorageClass for the dynamically-provisioned PVC when PVCMode is \"pvc\"."
+        },
+        "SharedPVCName": {
+          "type": "string",
+          "description": "Name of the pre-existing PVC mounted by every task when PVCMode is\n\"shared\". Defaults to \"funnel-pvc\"."
+        },
+        "WorkerImage": {
+          "type": "string",
+          "description": "WorkerImage optionally overrides the container image of the Worker Job.\nWhen empty, the image of the running Funnel server pod is used."
+        },
+        "S3FilesFilesystemId": {
+          "type": "string",
+          "title": "Configure this when using S3Files as PV backend"
         }
       },
       "description": "Kubernetes describes the configuration for the Kubernetes compute backend."
@@ -785,6 +826,20 @@
         }
       },
       "description": "Resources describes the CPU, RAM, and disk resources required by a task."
+    },
+    "configSDAStorage": {
+      "type": "object",
+      "properties": {
+        "ServiceURL": {
+          "type": "string",
+          "title": "Actual service used for fetching the files (e.g. 'https://some.host:8443/sda/')"
+        },
+        "Timeout": {
+          "$ref": "#/definitions/configTimeoutConfig",
+          "description": "Timeout for each SDA request."
+        }
+      },
+      "description": "SDAStorage configures the storage backend for the Sensitive Data Archive\n(SDA-download) service. When ServiceURL is a valid http(s) URL, task inputs\nwith the prefix \"sda://\" become supported."
     },
     "configSSE": {
       "type": "object",
