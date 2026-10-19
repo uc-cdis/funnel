@@ -131,19 +131,6 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 	return nil
 }
 
-// logConfig prints the task config and the fields relevant to plugin overrides.
-func (b *Backend) logConfig(stage string, c *config.Config) {
-	b.log.Debug("taskConfig", stage, c)
-	if c.Plugins != nil {
-		b.log.Debug("taskConfig", stage+" plugin_params", c.Plugins.Params)
-	}
-	if c.Kubernetes != nil && c.Kubernetes.S3FilesFilesystemId != "" {
-		b.log.Debug("taskConfig", stage+" S3FilesFilesystemId", c.Kubernetes.S3FilesFilesystemId)
-	} else {
-		b.log.Debug("taskConfig", stage+" S3FilesFilesystemId not set")
-	}
-}
-
 func (b *Backend) Close() {
 	// TODO: Close database or clean resources?
 }
