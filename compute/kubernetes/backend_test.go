@@ -13,7 +13,9 @@ import (
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/events"
 	"github.com/ohsu-comp-bio/funnel/logger"
+	"github.com/ohsu-comp-bio/funnel/plugins/proto"
 	"github.com/ohsu-comp-bio/funnel/tes"
+	protobuf "google.golang.org/protobuf/proto"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -337,6 +339,82 @@ spec:
 	}
 	if gotTol.Value != "worker" {
 		t.Fatalf("unexpected toleration value: got=%q want=%q", gotTol.Value, "worker")
+	}
+}
+
+// TestWriteEvent_PluginOverrideDoesNotMutateBackendConfig verifies that
+// WriteEvent passes a deep copy of the backend config to Submit, so plugin
+// overrides apply to the submitted job but never leak into b.conf.
+func TestWriteEvent_PluginOverrideDoesNotMutateBackendConfig(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+
+	conf := config.DefaultConfig()
+	conf.Kubernetes.Namespace = "test-namespace"
+	conf.Kubernetes.JobsNamespace = "test-namespace"
+	conf.Kubernetes.NodeSelector = map[string]string{"pool": "cpu"}
+	conf.Plugins = &config.Plugins{}
+	applyKubernetesTemplates(conf)
+	conf.Kubernetes.WorkerTemplate = `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.TaskId}}
+  namespace: {{.JobsNamespace}}
+spec:
+  template:
+    spec:
+      {{- if .NodeSelector }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: alpine
+        command: ["echo", "ok"]
+`
+	original := protobuf.Clone(conf).(*config.Config)
+
+	// Plugin response overrides the node selector for this task only.
+	pluginConf := protobuf.Clone(conf).(*config.Config)
+	pluginConf.Kubernetes.NodeSelector = map[string]string{"pool": "gpu"}
+	ctx := context.WithValue(context.Background(), "pluginResponse", &proto.JobResponse{Config: pluginConf})
+
+	backend := &Backend{
+		client: fakeClient,
+		log:    logger.NewLogger("test", logger.DefaultConfig()),
+		conf:   conf,
+		event:  &noopEventWriter{},
+	}
+
+	task := &tes.Task{
+		Id:        "plugin-task",
+		Resources: &tes.Resources{CpuCores: 1, RamGb: 1, DiskGb: 1},
+		Executors: []*tes.Executor{{Image: "alpine", Command: []string{"echo", "ok"}}},
+	}
+
+	if err := backend.WriteEvent(ctx, events.NewTaskCreated(task)); err != nil {
+		t.Fatalf("WriteEvent failed: %v", err)
+	}
+
+	job, err := fakeClient.BatchV1().Jobs(conf.Kubernetes.JobsNamespace).Get(context.Background(), task.Id, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get job: %v", err)
+	}
+
+	// Check 1: the job created on the fake client has pool=gpu, so the override reached the config passed to Submit
+	if got := job.Spec.Template.Spec.NodeSelector["pool"]; got != "gpu" {
+		t.Fatalf("plugin override not applied to submitted job: got pool=%q want %q", got, "gpu")
+	}
+	// Check 2: backend.conf still equals a snapshot taken before the call, so the shared config wasn't changed.
+	if !protobuf.Equal(backend.conf, original) {
+		t.Fatalf("backend config was mutated by plugin override: got NodeSelector=%v want %v",
+			backend.conf.Kubernetes.NodeSelector, original.Kubernetes.NodeSelector)
+	}
+	if backend.conf != conf {
+		t.Fatalf("backend config pointer was replaced")
 	}
 }
 

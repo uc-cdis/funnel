@@ -26,6 +26,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	protobuf "google.golang.org/protobuf/proto"
 )
 
 // Backend represents the K8s backend.
@@ -100,8 +101,10 @@ func (b Backend) CheckBackendParameterSupport(task *tes.Task) error {
 // Currently, only TASK_CREATED is handled, which calls Submit.
 func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 	// TODO: Should this be moved to the switch statement so it's only run on TASK_CREATED?
-	var taskConfig *config.Config = b.conf
+	// Work on a deep copy so that plugin overrides never mutate the shared backend config.
+	taskConfig := protobuf.Clone(b.conf).(*config.Config)
 	b.log.Debug("taskConfig", "before plugin", taskConfig.Safe())
+
 	if b.conf.Plugins != nil {
 		resp, ok := ctx.Value("pluginResponse").(*proto.JobResponse)
 		if !ok {
