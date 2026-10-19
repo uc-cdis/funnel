@@ -103,14 +103,7 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 	// TODO: Should this be moved to the switch statement so it's only run on TASK_CREATED?
 	// Work on a deep copy so that plugin overrides never mutate the shared backend config.
 	taskConfig := protobuf.Clone(b.conf).(*config.Config)
-	b.log.Debug("taskConfig", "before plugin", taskConfig)
-	b.log.Debug("taskConfig", "before plugin plugin_params", taskConfig.Plugins.Params)
-	// if taskConfig.Kubernetes has S3FilesFilesystemId print it
-	if taskConfig.Kubernetes != nil && taskConfig.Kubernetes.S3FilesFilesystemId != "" {
-		b.log.Debug("taskConfig", "before plugin S3FilesFilesystemId", taskConfig.Kubernetes.S3FilesFilesystemId)
-	} else {
-		b.log.Debug("taskConfig", "before plugin S3FilesFilesystemId not set")
-	}
+	b.log.Debug("taskConfig", "before plugin", taskConfig.Safe())
 
 	if b.conf.Plugins != nil {
 		resp, ok := ctx.Value("pluginResponse").(*proto.JobResponse)
@@ -124,15 +117,7 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 			return fmt.Errorf("Failed to merge plugin config %v", err)
 		}
 	}
-	b.log.Debug("taskConfig", "after plugin", taskConfig)
-	b.log.Debug("taskConfig", "after plugin plugin_params", taskConfig.Plugins.Params)
-
-	// if taskConfig.Kubernetes has S3FilesFilesystemId print it
-	if taskConfig.Kubernetes != nil && taskConfig.Kubernetes.S3FilesFilesystemId != "" {
-		b.log.Debug("taskConfig", "after plugin S3FilesFilesystemId", taskConfig.Kubernetes.S3FilesFilesystemId)
-	} else {
-		b.log.Debug("taskConfig", "after plugin S3FilesFilesystemId not set")
-	}
+	b.log.Debug("taskConfig", "after plugin", taskConfig.Safe())
 
 	switch ev.Type {
 	case events.Type_TASK_CREATED:
