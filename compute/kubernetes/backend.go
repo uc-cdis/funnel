@@ -103,6 +103,13 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 	var taskConfig *config.Config = b.conf
 	b.log.Debug("taskConfig", "before plugin", taskConfig)
 	b.log.Debug("taskConfig", "before plugin plugin_params", taskConfig.Plugins.Params)
+	// if taskConfig.Kubernetes has S3FilesFilesystemId print it
+	if taskConfig.Kubernetes != nil && taskConfig.Kubernetes.S3FilesFilesystemId != "" {
+		b.log.Debug("taskConfig", "before plugin S3FilesFilesystemId", taskConfig.Kubernetes.S3FilesFilesystemId)
+	} else {
+		b.log.Debug("taskConfig", "before plugin S3FilesFilesystemId not set")
+	}
+
 	if b.conf.Plugins != nil {
 		resp, ok := ctx.Value("pluginResponse").(*proto.JobResponse)
 		if !ok {
@@ -118,6 +125,12 @@ func (b *Backend) WriteEvent(ctx context.Context, ev *events.Event) error {
 	b.log.Debug("taskConfig", "after plugin", taskConfig)
 	b.log.Debug("taskConfig", "after plugin plugin_params", taskConfig.Plugins.Params)
 
+	// if taskConfig.Kubernetes has S3FilesFilesystemId print it
+	if taskConfig.Kubernetes != nil && taskConfig.Kubernetes.S3FilesFilesystemId != "" {
+		b.log.Debug("taskConfig", "after plugin S3FilesFilesystemId", taskConfig.Kubernetes.S3FilesFilesystemId)
+	} else {
+		b.log.Debug("taskConfig", "after plugin S3FilesFilesystemId not set")
+	}
 	switch ev.Type {
 	case events.Type_TASK_CREATED:
 		res := b.Submit(ctx, ev.GetTask(), taskConfig)
