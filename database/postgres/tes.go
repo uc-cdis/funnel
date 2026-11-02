@@ -39,6 +39,17 @@ type TaskCore struct {
 var fullView = "data"                                         // Select the entire JSONB column
 var minimalView = "id, owner, state, data -> 'creation_time'" // Can't easily construct the full minimalist view
 
+// applyView filters task fields according to the requested view.
+func applyView(task *tes.Task, view string) *tes.Task {
+	switch view {
+	case tes.View_BASIC.String():
+		return task.GetBasicView()
+	case tes.View_MINIMAL.String():
+		return task.GetMinimalView()
+	}
+	return task
+}
+
 // GetTask gets a task.
 func (db *Postgres) GetTask(ctx context.Context, req *tes.GetTaskRequest) (*tes.Task, error) {
 	ctx, cancel := db.context()
@@ -78,17 +89,7 @@ func (db *Postgres) GetTask(ctx context.Context, req *tes.GetTaskRequest) (*tes.
 
 	trimUnusedExecutorLogs(&task)
 
-	switch req.View {
-	case tes.View_BASIC.String():
-		// task.Logs = tes.FilterLogs(task.Logs, tes.FilterBasic)
-		// task.Inputs = tes.FilterInputs(task.Inputs, tes.FilterBasic)
-	case tes.View_MINIMAL.String():
-		task.Logs = nil
-		task.Inputs = nil
-		task.Outputs = nil
-	}
-
-	return &task, nil
+	return applyView(&task, req.View), nil
 }
 
 // ListTasks returns a list of tasks.
@@ -179,17 +180,7 @@ func (db *Postgres) ListTasks(ctx context.Context, req *tes.ListTasksRequest) (*
 
 		trimUnusedExecutorLogs(&task)
 
-		switch req.View {
-		case tes.View_BASIC.String():
-			// task.Logs = tes.FilterLogs(task.Logs, tes.FilterBasic)
-			// task.Inputs = tes.FilterInputs(task.Inputs, tes.FilterBasic)
-		case tes.View_MINIMAL.String():
-			task.Logs = nil
-			task.Inputs = nil
-			task.Outputs = nil
-		}
-
-		tasks = append(tasks, &task)
+		tasks = append(tasks, applyView(&task, req.View))
 	}
 
 	if rows.Err() != nil {
