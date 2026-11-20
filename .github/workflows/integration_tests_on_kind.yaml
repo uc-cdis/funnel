@@ -1,4 +1,4 @@
-name: Gen3 Integration Tests
+name: Gen3 Integration Tests on Kind
 
 on: pull_request
 
