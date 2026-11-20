@@ -9,6 +9,7 @@ jobs:
     uses: uc-cdis/.github/.github/workflows/integration_tests.yaml@master
     with:
       SERVICE_TO_TEST: gen3_workflow
+      SETUP_SCRIPT_2: https://raw.githubusercontent.com/uc-cdis/gen3-workflow/refs/heads/chore/ci_enable_gwf_script/.github/workflows/integration_tests_on_kind/ci_enable_gen3_workflow_and_disable_services.sh
     secrets:
       CI_TEST_ORCID_USERID: ${{ secrets.CI_TEST_ORCID_USERID }}
       CI_TEST_ORCID_PASSWORD: ${{ secrets.CI_TEST_ORCID_PASSWORD }}
